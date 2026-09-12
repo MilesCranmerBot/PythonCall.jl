@@ -1,0 +1,81 @@
+name: Executable check
+
+on:
+  push:
+    branches: [fix-windows-python-executable]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  executable-check:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows 3.10 normal
+            os: windows-latest
+            python-version: '3.10'
+            distribution: normal
+            shell: pwsh
+          - name: Windows 3.14 normal
+            os: windows-latest
+            python-version: '3.14'
+            distribution: normal
+            shell: pwsh
+          - name: Ubuntu 3.10 normal
+            os: ubuntu-latest
+            python-version: '3.10'
+            distribution: normal
+            shell: bash
+          - name: Windows 3.10 conda
+            os: windows-latest
+            python-version: '3.10'
+            distribution: conda
+            shell: pwsh
+    env:
+      PYTHON_JULIACALL_HANDLE_SIGNALS: 'yes'
+      PYTHON_JULIACALL_THREADS: '2'
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+
+      - uses: actions/setup-python@v7
+        if: matrix.distribution == 'normal'
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: conda-incubator/setup-miniconda@v4
+        if: matrix.distribution == 'conda'
+        with:
+          miniforge-variant: Miniforge3
+          miniforge-version: latest
+          activate-environment: executable-check
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: |
+          cp pysrc/juliacall/juliapkg-dev.json pysrc/juliacall/juliapkg.json
+          python -m pip install --editable . pytest
+
+      - name: Run executable regression
+        if: runner.os != 'Windows'
+        run: python -m pytest pytest/test_all.py::test_pythoncall_executable_runs_python -p no:faulthandler
+
+      - name: Run executable regression
+        if: runner.os == 'Windows'
+        run: |
+          python -m pytest pytest/test_all.py::test_pythoncall_executable_runs_python -p no:faulthandler *> pytest-output.txt
+          $exitCode = $LASTEXITCODE
+          Get-Content pytest-output.txt
+          exit $exitCode

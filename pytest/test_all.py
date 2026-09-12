@@ -5,6 +5,40 @@ def test_import():
     import juliacall
 
 
+def test_pythoncall_executable_runs_python():
+    import os
+    import subprocess
+    import sys
+
+    from juliacall import Main as jl
+
+    env = os.environ.copy()
+    env["JULIA_PYTHONCALL_EXE"] = sys.executable
+    code = '''\
+using PythonCall
+sys = pyimport("sys")
+@assert pyconvert(String, sys.executable) == ENV["JULIA_PYTHONCALL_EXE"]
+subprocess = pyimport("subprocess")
+output = subprocess.check_output([sys.executable, "-c", "print(6, end='')"])
+print(pyconvert(String, output.decode()))
+'''
+    result = subprocess.run(
+        [
+            str(jl.seval("first(Base.julia_cmd().exec)")),
+            "--project=" + str(jl.seval("dirname(Base.active_project())")),
+            "--startup-file=no",
+            "-e",
+            code,
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "6"
+
+
 def test_newmodule():
     import juliacall
 
