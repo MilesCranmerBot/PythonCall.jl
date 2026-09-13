@@ -6,18 +6,15 @@ def test_import():
 
 
 def test_pythoncall_executable_runs_python():
-    import os
     import subprocess
     import sys
 
     from juliacall import Main as jl
 
-    env = os.environ.copy()
-    env["JULIA_PYTHONCALL_EXE"] = sys.executable
     code = '''\
 using PythonCall
 sys = pyimport("sys")
-@assert pyconvert(String, sys.executable) == ENV["JULIA_PYTHONCALL_EXE"]
+@assert pyconvert(String, sys.executable) == only(ARGS)
 subprocess = pyimport("subprocess")
 output = subprocess.check_output([sys.executable, "-c", "print(6, end='')"])
 print(pyconvert(String, output.decode()))
@@ -29,8 +26,8 @@ print(pyconvert(String, output.decode()))
             "--startup-file=no",
             "-e",
             code,
+            sys.executable,
         ],
-        env=env,
         capture_output=True,
         text=True,
         timeout=180,
