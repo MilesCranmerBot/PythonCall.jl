@@ -114,6 +114,8 @@ def setup(mode):
 def observe(import_order):
     import os
 
+    os.environ.pop("JULIA_PYTHONCALL_EXE", None)
+    os.environ.pop("JULIA_PYTHONCALL_EXECUTABLE", None)
     os.environ.pop("JULIA_CONDAPKG_OFFLINE", None)
     observation = {
         "import_order": import_order,
@@ -126,6 +128,7 @@ def observe(import_order):
     try:
         namespace = {}
         exec(import_order, namespace)
+        observation["pythoncall_source"] = str(namespace["jl"].seval("pathof(PythonCall)"))
         observation["worker"] = json.loads(namespace["jl"].seval(WORKER_CODE))
         worker = observation["worker"]
         observation["checks"] = {
